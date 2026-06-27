@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Spam Detector</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3e;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 580px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .header h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+
+    .header p {
+      color: #6b7280;
+      font-size: 0.9rem;
+      margin-top: 6px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+
+    input[type="text"], textarea {
+      width: 100%;
+      background: #0f1117;
+      border: 1px solid #2a2d3e;
+      border-radius: 10px;
+      color: #e0e0e0;
+      font-size: 0.95rem;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      font-family: inherit;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus { border-color: #6366f1; }
+
+    input[type="text"]::placeholder,
+    textarea::placeholder { color: #4b5563; }
+
+    .field { margin-bottom: 16px; }
+
+    textarea { height: 200px; resize: none; }
+
+    button {
+      width: 100%;
+      margin-top: 6px;
+      padding: 14px;
+      background: #6366f1;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+
+    button:hover { background: #4f46e5; }
+    button:active { transform: scale(0.98); }
+    button:disabled { background: #374151; cursor: not-allowed; }
+
+    .result {
+      margin-top: 24px;
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result.spam { background: #2d1515; border: 1px solid #ef4444; }
+    .result.ham  { background: #0f2d1a; border: 1px solid #22c55e; }
+
+    .result-label {
+      font-size: 1.4rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .result.spam .result-label { color: #ef4444; }
+    .result.ham  .result-label { color: #22c55e; }
+
+    .result-conf {
+      font-size: 0.85rem;
+      color: #9ca3af;
+      margin-top: 6px;
+    }
+
+    .conf-bar-wrap {
+      background: #1f2937;
+      border-radius: 99px;
+      height: 6px;
+      margin-top: 12px;
+      overflow: hidden;
+    }
+
+    .conf-bar {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.5s ease;
+    }
+
+    .result.spam .conf-bar { background: #ef4444; }
+    .result.ham  .conf-bar { background: #22c55e; }
+
+    .error-msg {
+      margin-top: 14px;
+      color: #f87171;
+      font-size: 0.85rem;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>🛡️ Spam Detector</h1>
+      <p>Enter the email subject and body to check if it's spam</p>
+    </div>
+
+    <div class="field">
+      <label>Subject</label>
+      <input type="text" id="subjectInput" placeholder="e.g. Claim your FREE prize now!" />
+    </div>
+
+    <div class="field">
+      <label>Message Body</label>
+      <textarea id="msgInput" placeholder="Paste the full email body here..."></textarea>
+    </div>
+
+    <button id="checkBtn" onclick="checkSpam()">Check Email</button>
+
+    <div class="result" id="result">
+      <div class="result-label">
+        <span id="resultIcon"></span>
+        <span id="resultLabel"></span>
+      </div>
+      <div class="result-conf" id="resultConf"></div>
+      <div class="conf-bar-wrap">
+        <div class="conf-bar" id="confBar"></div>
+      </div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <script>
+    async function checkSpam() {
+      const subject = document.getElementById('subjectInput').value.trim();
+      const msg = document.getElementById('msgInput').value.trim();
+      const btn = document.getElementById('checkBtn');
+      const resultBox = document.getElementById('result');
+      const errorBox = document.getElementById('errorMsg');
+
+      errorBox.style.display = 'none';
+      resultBox.style.display = 'none';
+
+      if (!subject && !msg) {
+        errorBox.textContent = 'Please enter a subject or message body.';
+        errorBox.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Checking...';
+
+      try {
+        const res = await fetch('/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject, message: msg })
+        });
+
+        const data = await res.json();
+        const isSpam = data.label === 'SPAM';
+
+        resultBox.className = 'result ' + (isSpam ? 'spam' : 'ham');
+        document.getElementById('resultIcon').textContent = isSpam ? '🚨' : '✅';
+        document.getElementById('resultLabel').textContent = isSpam ? 'Spam Detected' : 'Looks Safe (Ham)';
+        document.getElementById('resultConf').textContent = `Confidence: ${data.confidence}%`;
+        document.getElementById('confBar').style.width = data.confidence + '%';
+        resultBox.style.display = 'block';
+
+      } catch (err) {
+        errorBox.textContent = 'Server error. Make sure Flask is running.';
+        errorBox.style.display = 'block';
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Check Email';
+    }
+  </script>
+</body>
+</html>
